@@ -217,27 +217,6 @@ const Admin = () => {
                 </div>
               )}
               <button
-                onClick={async () => {
-                  try {
-                    const { clearTodayResults } = await import('@/lib/data');
-                    await clearTodayResults();
-                    toast({
-                      title: "Success",
-                      description: "Today's results have been cleared.",
-                    });
-                  } catch (err) {
-                    toast({
-                      title: "Error",
-                      description: "Failed to clear results.",
-                      variant: "destructive"
-                    });
-                  }
-                }}
-                className="bg-orange-500 text-white px-4 py-2 rounded font-bold text-sm hover:bg-orange-600 transition-all"
-              >
-                Clear Today's Results
-              </button>
-              <button
                 onClick={() => setShowAddForm(!showAddForm)}
                 className="bg-primary text-primary-foreground px-4 py-2 rounded font-bold text-sm hover:bg-yellow-dark"
               >
