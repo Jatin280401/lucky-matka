@@ -217,6 +217,27 @@ const Admin = () => {
                 </div>
               )}
               <button
+                onClick={async () => {
+                  try {
+                    const { clearTodayResults } = await import('@/lib/data');
+                    await clearTodayResults();
+                    toast({
+                      title: "Success",
+                      description: "Today's results have been cleared.",
+                    });
+                  } catch (err) {
+                    toast({
+                      title: "Error",
+                      description: "Failed to clear results.",
+                      variant: "destructive"
+                    });
+                  }
+                }}
+                className="bg-orange-500 text-white px-4 py-2 rounded font-bold text-sm hover:bg-orange-600 transition-all"
+              >
+                Clear Today's Results
+              </button>
+              <button
                 onClick={() => setShowAddForm(!showAddForm)}
                 className="bg-primary text-primary-foreground px-4 py-2 rounded font-bold text-sm hover:bg-yellow-dark"
               >
@@ -459,10 +480,8 @@ const CityList = ({ cities, editingCity, onEdit, onUpdate, onDelete }: CityListP
               <input
                 value={editingCity.todayResult}
                 onChange={(e) => onEdit({ ...editingCity, todayResult: e.target.value })}
-                disabled={currentMinutes < parseTime(editingCity.timing)}
-                className={`bg-background border border-border px-2 py-1 rounded text-foreground text-sm ${currentMinutes < parseTime(editingCity.timing) ? "opacity-60 cursor-not-allowed" : ""}`}
-                placeholder={currentMinutes < parseTime(editingCity.timing) ? "Today (Locked)" : "Today"}
-                title={currentMinutes < parseTime(editingCity.timing) ? "Result unlocks at " + editingCity.timing : ""}
+                className="bg-background border border-border px-2 py-1 rounded text-foreground text-sm"
+                placeholder="Today Result"
               />
               <div className="col-span-2 md:col-span-4 flex gap-2">
                 <button

@@ -37,11 +37,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
         .from('khaiwals')
         .select('*');
 
+      let finalCities: City[] = [];
+
       if (!citiesError && citiesData && citiesData.length > 0) {
-        setCities(citiesData as City[]);
+        finalCities = citiesData as City[];
       } else {
-        setCities(JSON.parse(localStorage.getItem("satta_cities") || JSON.stringify(defaultCities)));
+        finalCities = JSON.parse(localStorage.getItem("satta_cities") || JSON.stringify(defaultCities));
       }
+
+      // Check for daily reset
+      const { syncDailyReset } = await import('@/lib/data');
+      finalCities = await syncDailyReset(finalCities);
+      
+      setCities(finalCities);
 
       if (!khaiwalsError && khaiwalsData && khaiwalsData.length > 0) {
         setKhaiwals(khaiwalsData as Khaiwal[]);

@@ -31,17 +31,22 @@ const Contact = () => {
         </p>
 
         {/* WhatsApp contact links */}
-        <div className="flex flex-col sm:flex-row gap-6 justify-center items-center">
+        <div className="flex flex-col sm:flex-row gap-8 justify-center items-center">
           {WHATSAPP_NUMBERS.map((item) => (
             <a
               key={item.number}
               href={`https://wa.me/${item.number.replace("+", "")}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-3 bg-[#25D366] text-white px-8 py-4 rounded-xl font-bold text-xl hover:bg-[#128c7e] transition-all shadow-xl hover:shadow-[#25D366]/20 hover:-translate-y-1 w-full sm:w-auto"
+              className="bg-[#25D366] flex items-center gap-3 pl-1 pr-8 py-1.5 rounded-full shadow-lg hover:opacity-90 transition-all active:scale-95 w-fit min-w-[220px]"
             >
-              <WhatsAppIcon size={32} />
-              <span>{item.label}</span>
+              <div className="bg-white rounded-full flex items-center justify-center w-12 h-12 shadow-sm overflow-hidden">
+                <WhatsAppIcon className="text-[#25D366] mt-0.5 ml-0.5" size={36} />
+              </div>
+              <div className="flex flex-col text-white text-left leading-[1.1]">
+                <span className="font-bold text-xl leading-none">WhatsApp</span>
+                <span className="text-xs font-bold leading-none">Click to chat</span>
+              </div>
             </a>
           ))}
         </div>

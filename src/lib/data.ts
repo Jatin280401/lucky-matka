@@ -136,6 +136,47 @@ export const defaultTopResults: TopResult[] = [
   { id: "3", cityName: "Dehradun City", result: "", isWaiting: true },
 ];
 
+export async function syncDailyReset(cities: City[]) {
+  const storedDate = localStorage.getItem("satta_last_date");
+  const currentDate = new Date().toDateString();
+
+  if (storedDate !== currentDate) {
+    console.log("Date changed, performing daily reset...");
+    const updatedCities = cities.map(city => ({
+      ...city,
+      yesterdayResult: city.todayResult || city.yesterdayResult,
+      todayResult: "",
+    }));
+
+    // Update Local Storage
+    localStorage.setItem("satta_cities", JSON.stringify(updatedCities));
+    localStorage.setItem("satta_last_date", currentDate);
+
+    // Update Supabase
+    if (supabase) {
+      const upsertData = updatedCities.map(c => ({
+        id: c.id,
+        name: c.name,
+        timing: c.timing,
+        "yesterdayResult": c.yesterdayResult,
+        "todayResult": "", // Explicitly clear today's result
+        slug: c.slug,
+        "group": c.group,
+        "order": c.order
+      }));
+      
+      try {
+        const { error } = await supabase.from("cities").upsert(upsertData, { onConflict: "id" });
+        if (error) console.error("Error syncing daily reset to Supabase:", error);
+      } catch (err) {
+        console.error("Failed to sync daily reset:", err);
+      }
+    }
+    return updatedCities;
+  }
+  return cities;
+}
+
 export function getCities(): City[] {
   const stored = localStorage.getItem("satta_cities");
   const storedDate = localStorage.getItem("satta_last_date");
@@ -143,12 +184,16 @@ export function getCities(): City[] {
 
   let cities = defaultCities;
   if (stored) {
-    cities = JSON.parse(stored);
+    try {
+      cities = JSON.parse(stored);
+    } catch (e) {
+      cities = defaultCities;
+    }
   } else {
     localStorage.setItem("satta_cities", JSON.stringify(defaultCities));
   }
 
-  // Daily reset logic: if the date has changed, move today's result to yesterday
+  // Local reset logic (backup)
   if (storedDate !== currentDate) {
     cities = cities.map(city => ({
       ...city,
