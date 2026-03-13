@@ -138,8 +138,13 @@ export const defaultTopResults: TopResult[] = [
 ];
 
 export async function syncDailyReset(cities: City[]) {
-  const currentDate = new Date().toDateString();
+  const getFormattedDate = () => {
+    // Generate a reliable YYYY-MM-DD local string instead of variable toDateString
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
 
+  const currentDate = getFormattedDate();
   const storedDate = localStorage.getItem("satta_last_date");
   
   // Find the tracker
@@ -159,12 +164,14 @@ export async function syncDailyReset(cities: City[]) {
       };
     });
 
-    // Update Local Storage
+    // Update Local Storage early
     localStorage.setItem("satta_cities", JSON.stringify(updatedCities));
     localStorage.setItem("satta_last_date", currentDate);
 
-    // Update Supabase
-    if (supabase) {
+    // Update Supabase ONLY if the user is an admin or no tracker existed (bootstrapping)
+    const canAttemptGlobalWipe = isAdminLoggedIn() || !tracker;
+
+    if (supabase && canAttemptGlobalWipe) {
       const upsertData = updatedCities.map(c => ({
         id: c.id,
         name: c.name,
@@ -198,7 +205,12 @@ export async function syncDailyReset(cities: City[]) {
 export function getCities(): City[] {
   const stored = localStorage.getItem("satta_cities");
   const storedDate = localStorage.getItem("satta_last_date");
-  const currentDate = new Date().toDateString();
+
+  const getFormattedDate = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+  const currentDate = getFormattedDate();
 
   let cities = defaultCities;
   if (stored) {
