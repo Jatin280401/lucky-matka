@@ -79,7 +79,7 @@ const Admin = () => {
     handleSaveCities(updated);
   };
 
-  const handleUpdateCity = (city: City) => {
+  const handleUpdateCity = async (city: City) => {
     // Generate static date representations for the exact moment of saving
     const now = new Date();
     const months = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
@@ -102,8 +102,21 @@ const Admin = () => {
     }
 
     const updated = cities.map((c) => (c.id === city.id ? updatedCity : c));
-    handleSaveCities(updated);
-    setEditingCity(null);
+    
+    try {
+      await handleSaveCities(updated);
+      setEditingCity(null);
+      toast({
+        title: "City Updated",
+        description: `${city.name} has been saved successfully.`
+      });
+    } catch (err: any) {
+      toast({
+        title: "Database Error",
+        description: `Failed to save to Supabase: ${err.message || 'Unknown error. Did you run the SQL command?'}.`,
+        variant: "destructive"
+      });
+    }
   };
 
   const handleSaveKhaiwals = async (updated: Khaiwal[]) => {
@@ -162,8 +175,8 @@ const Admin = () => {
     navigate("/login");
   };
 
-  const mainCities = cities.filter((c) => c.group === "main").sort((a, b) => a.order - b.order);
-  const secondaryCities = cities.filter((c) => c.group === "secondary").sort((a, b) => a.order - b.order);
+  const mainCities = cities.filter((c) => c.group === "main" && c.id !== "system-date-tracker").sort((a, b) => a.order - b.order);
+  const secondaryCities = cities.filter((c) => c.group === "secondary" && c.id !== "system-date-tracker").sort((a, b) => a.order - b.order);
 
   return (
     <div className="min-h-screen bg-background">

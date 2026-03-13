@@ -45,9 +45,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
         finalCities = JSON.parse(localStorage.getItem("satta_cities") || JSON.stringify(defaultCities));
       }
 
-      // Check for daily reset
+      // Check for daily reset strictly on page load or explicit refresh, not every realtime ping
       const { syncDailyReset } = await import('@/lib/data');
-      finalCities = await syncDailyReset(finalCities);
+      if (typeof window !== 'undefined' && !(window as any).satta_reset_completed) {
+        finalCities = await syncDailyReset(finalCities);
+        (window as any).satta_reset_completed = true;
+      }
       
       setCities(finalCities);
 

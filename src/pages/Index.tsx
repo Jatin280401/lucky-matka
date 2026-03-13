@@ -16,10 +16,10 @@ const Index = () => {
   const { cities } = useData();
 
   const mainCities = cities
-    .filter((c) => c.group === "main")
+    .filter((c) => c.group === "main" && c.id !== "system-date-tracker")
     .sort((a, b) => a.order - b.order);
   const secondaryCities = cities
-    .filter((c) => c.group === "secondary")
+    .filter((c) => c.group === "secondary" && c.id !== "system-date-tracker")
     .sort((a, b) => a.order - b.order);
 
   return (

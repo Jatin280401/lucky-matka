@@ -115,7 +115,16 @@ export const defaultCities: City[] = [
   { id: "23", name: "Lion Bazar", timing: "8:30 PM", yesterdayResult: "87", todayResult: "", slug: "lion-bazar", group: "secondary", order: 11 },
   { id: "24", name: "Dehradun City", timing: "9:40 PM", yesterdayResult: "70", todayResult: "", slug: "dehradun-city", group: "secondary", order: 12 },
   { id: "25", name: "Daman", timing: "9:50 PM", yesterdayResult: "45", todayResult: "", slug: "daman", group: "secondary", order: 13 },
-  { id: "system-date-tracker", name: "System Date Tracker", timing: new Date().toDateString(), yesterdayResult: "", todayResult: "", slug: "system-date-tracker", group: "main", order: 999 },
+  { 
+    id: "system-date-tracker", 
+    name: "System Date Tracker", 
+    timing: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`, 
+    yesterdayResult: "", 
+    todayResult: "", 
+    slug: "system-date-tracker", 
+    group: "main", 
+    order: 999 
+  },
 ];
 
 export async function clearTodayResults() {
@@ -251,8 +260,11 @@ export function getCities(): City[] {
 }
 
 export async function saveCities(cities: City[]) {
+  const d = new Date();
+  const currentDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  
   localStorage.setItem("satta_cities", JSON.stringify(cities));
-  localStorage.setItem("satta_last_date", new Date().toDateString());
+  localStorage.setItem("satta_last_date", currentDate);
   
   if (supabase) {
     const upsertData = cities.map(c => ({
@@ -266,13 +278,21 @@ export async function saveCities(cities: City[]) {
       "order": c.order,
       chart_data: c.chart_data || {}
     }));
-    await supabase.from("cities").upsert(upsertData, { onConflict: "id" });
+    const { error } = await supabase.from("cities").upsert(upsertData, { onConflict: "id" });
+    if (error) {
+       console.error("CRITICAL SUPABASE UPSERT ERROR:", error.message, error.details);
+       // Throw error to alert the calling component rather than silently failing
+       throw error;
+    }
   }
 }
 
 export async function resetCitiesToDefaults() {
+  const d = new Date();
+  const currentDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
   localStorage.setItem("satta_cities", JSON.stringify(defaultCities));
-  localStorage.setItem("satta_last_date", new Date().toDateString());
+  localStorage.setItem("satta_last_date", currentDate);
   
   if (supabase) {
     // Delete all existing records to ensure perfect cleanup
