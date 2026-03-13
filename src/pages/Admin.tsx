@@ -80,11 +80,27 @@ const Admin = () => {
   };
 
   const handleUpdateCity = (city: City) => {
+    // Generate static date representations for the exact moment of saving
+    const now = new Date();
+    const months = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
+    const currentMonth = months[now.getMonth()];
+    const currentDayIdx = now.getDate() - 1; // 0-indexed for array positions
+
     // Ensure slug matches the name
     const updatedCity = {
       ...city,
-      slug: city.name.toLowerCase().trim().replace(/\s+/g, "-")
+      slug: city.name.toLowerCase().trim().replace(/\s+/g, "-"),
+      chart_data: city.chart_data ? JSON.parse(JSON.stringify(city.chart_data)) : {} // Deep copy to edit
     };
+
+    // If there is an active result today, map it permanently into history
+    if (updatedCity.todayResult && updatedCity.todayResult !== "--") {
+      if (!updatedCity.chart_data[currentMonth]) {
+        updatedCity.chart_data[currentMonth] = Array.from({length: 31}, () => "");
+      }
+      updatedCity.chart_data[currentMonth][currentDayIdx] = updatedCity.todayResult;
+    }
+
     const updated = cities.map((c) => (c.id === city.id ? updatedCity : c));
     handleSaveCities(updated);
     setEditingCity(null);

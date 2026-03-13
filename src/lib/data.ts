@@ -8,6 +8,7 @@ export type City = {
   slug: string;
   group: "main" | "secondary";
   order: number;
+  chart_data?: Record<string, string[]>;
 };
 
 // Added helper to compute minutes for time sorting
@@ -180,7 +181,8 @@ export async function syncDailyReset(cities: City[]) {
         "todayResult": c.id === "system-date-tracker" ? "" : "", // Explicitly clear today's result
         slug: c.slug,
         "group": c.group,
-        "order": c.order
+        "order": c.order,
+        chart_data: c.chart_data || {}
       }));
       
       try {
@@ -261,7 +263,8 @@ export async function saveCities(cities: City[]) {
       "todayResult": c.todayResult,
       slug: c.slug,
       "group": c.group,
-      "order": c.order
+      "order": c.order,
+      chart_data: c.chart_data || {}
     }));
     await supabase.from("cities").upsert(upsertData, { onConflict: "id" });
   }
@@ -289,7 +292,8 @@ export async function resetCitiesToDefaults() {
       "todayResult": c.todayResult,
       slug: c.slug,
       "group": c.group,
-      "order": c.order
+      "order": c.order,
+      chart_data: c.chart_data || {}
     }));
     
     const { error: insertError } = await supabase.from("cities").insert(insertData);

@@ -105,12 +105,11 @@ const CityChart = () => {
                 {months.map((m) => {
                   let val = data[m] ? data[m][day - 1] || "" : "";
                   
-                  // Inject real-time data from admin panel
-                  if (cityData) {
-                    if (m === currentMonthName && day === currentDay) {
-                      if (cityData.todayResult) val = cityData.todayResult;
-                    } else if (m === yesterdayMonthName && day === yesterdayDay) {
-                      if (cityData.yesterdayResult !== "--") val = cityData.yesterdayResult;
+                  // Inject actual historical data from Supabase DB storage
+                  if (cityData?.chart_data && cityData.chart_data[m]) {
+                    const loadedVal = cityData.chart_data[m][day - 1];
+                    if (loadedVal) {
+                      val = loadedVal;
                     }
                   }
 
