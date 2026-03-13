@@ -114,6 +114,7 @@ export const defaultCities: City[] = [
   { id: "23", name: "Lion Bazar", timing: "8:30 PM", yesterdayResult: "87", todayResult: "", slug: "lion-bazar", group: "secondary", order: 11 },
   { id: "24", name: "Dehradun City", timing: "9:40 PM", yesterdayResult: "70", todayResult: "", slug: "dehradun-city", group: "secondary", order: 12 },
   { id: "25", name: "Daman", timing: "9:50 PM", yesterdayResult: "45", todayResult: "", slug: "daman", group: "secondary", order: 13 },
+  { id: "system-date-tracker", name: "System Date Tracker", timing: new Date().toDateString(), yesterdayResult: "", todayResult: "", slug: "system-date-tracker", group: "main", order: 999 },
 ];
 
 export async function clearTodayResults() {
@@ -137,16 +138,26 @@ export const defaultTopResults: TopResult[] = [
 ];
 
 export async function syncDailyReset(cities: City[]) {
-  const storedDate = localStorage.getItem("satta_last_date");
   const currentDate = new Date().toDateString();
 
-  if (storedDate !== currentDate) {
-    console.log("Date changed, performing daily reset...");
-    const updatedCities = cities.map(city => ({
-      ...city,
-      yesterdayResult: city.todayResult || city.yesterdayResult,
-      todayResult: "",
-    }));
+  const storedDate = localStorage.getItem("satta_last_date");
+  
+  // Find the tracker
+  const tracker = cities.find(c => c.id === "system-date-tracker");
+  const globalLastDate = tracker ? tracker.timing : storedDate;
+
+  if (globalLastDate !== currentDate) {
+    console.log("Date changed globally, performing daily reset...");
+    const updatedCities = cities.map(city => {
+      if (city.id === "system-date-tracker") {
+        return { ...city, timing: currentDate };
+      }
+      return {
+        ...city,
+        yesterdayResult: city.todayResult || city.yesterdayResult,
+        todayResult: "",
+      };
+    });
 
     // Update Local Storage
     localStorage.setItem("satta_cities", JSON.stringify(updatedCities));
@@ -159,7 +170,7 @@ export async function syncDailyReset(cities: City[]) {
         name: c.name,
         timing: c.timing,
         "yesterdayResult": c.yesterdayResult,
-        "todayResult": "", // Explicitly clear today's result
+        "todayResult": c.id === "system-date-tracker" ? "" : "", // Explicitly clear today's result
         slug: c.slug,
         "group": c.group,
         "order": c.order
@@ -173,8 +184,15 @@ export async function syncDailyReset(cities: City[]) {
       }
     }
     return updatedCities;
+  } else {
+    // Global already shifted. Just sync local storage date if needed
+    const storedDate = localStorage.getItem("satta_last_date");
+    if (storedDate !== currentDate) {
+      localStorage.setItem("satta_cities", JSON.stringify(cities));
+      localStorage.setItem("satta_last_date", currentDate);
+    }
+    return cities;
   }
-  return cities;
 }
 
 export function getCities(): City[] {
@@ -194,12 +212,23 @@ export function getCities(): City[] {
   }
 
   // Local reset logic (backup)
-  if (storedDate !== currentDate) {
-    cities = cities.map(city => ({
-      ...city,
-      yesterdayResult: city.todayResult || city.yesterdayResult,
-      todayResult: "",
-    }));
+  const tracker = cities.find(c => c.id === "system-date-tracker");
+  const globalLastDate = tracker ? tracker.timing : storedDate;
+
+  if (globalLastDate !== currentDate && storedDate !== currentDate) {
+    cities = cities.map(city => {
+      if (city.id === "system-date-tracker") {
+        return { ...city, timing: currentDate };
+      }
+      return {
+        ...city,
+        yesterdayResult: city.todayResult || city.yesterdayResult,
+        todayResult: "",
+      };
+    });
+    localStorage.setItem("satta_cities", JSON.stringify(cities));
+    localStorage.setItem("satta_last_date", currentDate);
+  } else if (storedDate !== currentDate) {
     localStorage.setItem("satta_cities", JSON.stringify(cities));
     localStorage.setItem("satta_last_date", currentDate);
   }
@@ -299,7 +328,7 @@ export async function deleteKhaiwal(id: string) {
 }
 
 export function getTopResults(citiesParam?: City[]): TopResult[] {
-  const cities = citiesParam || getCities();
+  const cities = (citiesParam || getCities()).filter(c => c.id !== "system-date-tracker");
   const now = new Date();
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
   
