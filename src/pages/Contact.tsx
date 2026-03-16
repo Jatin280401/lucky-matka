@@ -4,7 +4,7 @@ import Footer from "@/components/Footer";
 import WhatsAppIcon from "@/components/WhatsAppIcon";
 
 const WHATSAPP_NUMBERS = [
-  { number: "+919991779501", label: "+91 9991779501" },
+  { number: "+918278513393", label: "+91 8278513393" },
 ];
 
 const Contact = () => {
