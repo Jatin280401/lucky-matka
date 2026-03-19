@@ -101,6 +101,19 @@ const Admin = () => {
       updatedCity.chart_data[currentMonth][currentDayIdx] = updatedCity.todayResult;
     }
 
+    // Also map yesterdayResult permanently into history if available
+    if (updatedCity.yesterdayResult && updatedCity.yesterdayResult !== "--") {
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yestMonth = months[yesterday.getMonth()];
+      const yestDayIdx = yesterday.getDate() - 1;
+
+      if (!updatedCity.chart_data[yestMonth]) {
+        updatedCity.chart_data[yestMonth] = Array.from({length: 31}, () => "");
+      }
+      updatedCity.chart_data[yestMonth][yestDayIdx] = updatedCity.yesterdayResult;
+    }
+
     const updated = cities.map((c) => (c.id === city.id ? updatedCity : c));
     
     try {
@@ -480,10 +493,9 @@ const CityList = ({ cities, editingCity, onEdit, onUpdate, onDelete }: CityListP
               />
               <input
                 value={editingCity.yesterdayResult}
-                disabled
-                className="bg-muted border border-border px-2 py-1 rounded text-muted-foreground text-sm cursor-not-allowed opacity-60"
-                placeholder="Yesterday (Locked)"
-                title="Yesterday's result cannot be changed"
+                onChange={(e) => onEdit({ ...editingCity, yesterdayResult: e.target.value })}
+                className="bg-background border border-border px-2 py-1 rounded text-foreground text-sm"
+                placeholder="Yesterday Result"
               />
               <input
                 value={editingCity.todayResult}
