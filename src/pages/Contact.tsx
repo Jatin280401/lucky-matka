@@ -13,7 +13,6 @@ const Contact = () => {
       <Navbar />
       <MarqueeBar />
 
-      {/* LUCKY-MATKA Title Bar */}
       <div className="bg-primary py-3">
         <h1 className="text-primary-foreground text-4xl font-bold tracking-wider opacity-60 text-center">
           LUCKY-MATKA
