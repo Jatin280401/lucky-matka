@@ -62,7 +62,7 @@ export const defaultKhaiwals: Khaiwal[] = [
       { name: "मिर्जापुर", time: "5:20pm" },
       { name: "फरीदाबाद", time: "6:00pm" },
       { name: "बहादुरगढ़", time: "7:20pm" },
-      { name: "गाज़ियाबाद", time: "9:20pm" },
+      { name: "गाज़ियाबाद", time: "9:20pm" },
       { name: "डीएलएफ सिटी", time: "10:20pm" },
       { name: "गली", time: "11:20pm" },
       { name: "दिसावर", time: "1:30Am" },
@@ -81,7 +81,7 @@ export const defaultKhaiwals: Khaiwal[] = [
       { name: "मिर्जापुर", time: "5:20pm" },
       { name: "फरीदाबाद", time: "6:00pm" },
       { name: "बहादुरगढ़", time: "7:20pm" },
-      { name: "गाज़ियाबाद", time: "9:20pm" },
+      { name: "गाज़ियाबाद", time: "9:20pm" },
       { name: "डीएलएफ सिटी", time: "10:20pm" },
       { name: "गली", time: "11:20pm" },
       { name: "दिसावर", time: "1:30Am" },
@@ -147,81 +147,14 @@ export const defaultTopResults: TopResult[] = [
   { id: "3", cityName: "Dehradun City", result: "", isWaiting: true },
 ];
 
+// DAILY RESET COMPLETELY DISABLED - DO NOT ADD SHIFTING LOGIC BACK
+// Results should only be managed manually via the Admin panel
 export async function syncDailyReset(cities: City[]) {
-  const getFormattedDate = () => {
-    // Generate a reliable YYYY-MM-DD local string instead of variable toDateString
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  };
-
-  const currentDate = getFormattedDate();
-  const storedDate = localStorage.getItem("satta_last_date");
-  
-  // Find the tracker
-  const tracker = cities.find(c => c.id === "system-date-tracker");
-  const globalLastDate = tracker ? tracker.timing : storedDate;
-
-  if (globalLastDate !== currentDate) {
-    console.log("Date changed globally, performing daily reset...");
-    const updatedCities = cities.map(city => {
-      if (city.id === "system-date-tracker") {
-        return { ...city, timing: currentDate };
-      }
-      return {
-        ...city,
-        yesterdayResult: city.todayResult || city.yesterdayResult,
-        todayResult: "",
-      };
-    });
-
-    // Update Local Storage early
-    localStorage.setItem("satta_cities", JSON.stringify(updatedCities));
-    localStorage.setItem("satta_last_date", currentDate);
-
-    // Update Supabase ONLY if the user is an admin or no tracker existed (bootstrapping)
-    const canAttemptGlobalWipe = isAdminLoggedIn() || !tracker;
-
-    if (supabase && canAttemptGlobalWipe) {
-      const upsertData = updatedCities.map(c => ({
-        id: c.id,
-        name: c.name,
-        timing: c.timing,
-        "yesterdayResult": c.yesterdayResult,
-        "todayResult": c.id === "system-date-tracker" ? "" : "", // Explicitly clear today's result
-        slug: c.slug,
-        "group": c.group,
-        "order": c.order,
-        chart_data: c.chart_data || {}
-      }));
-      
-      try {
-        const { error } = await supabase.from("cities").upsert(upsertData, { onConflict: "id" });
-        if (error) console.error("Error syncing daily reset to Supabase:", error);
-      } catch (err) {
-        console.error("Failed to sync daily reset:", err);
-      }
-    }
-    return updatedCities;
-  } else {
-    // Global already shifted. Just sync local storage date if needed
-    const storedDate = localStorage.getItem("satta_last_date");
-    if (storedDate !== currentDate) {
-      localStorage.setItem("satta_cities", JSON.stringify(cities));
-      localStorage.setItem("satta_last_date", currentDate);
-    }
-    return cities;
-  }
+  return cities;
 }
 
 export function getCities(): City[] {
   const stored = localStorage.getItem("satta_cities");
-  const storedDate = localStorage.getItem("satta_last_date");
-
-  const getFormattedDate = () => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  };
-  const currentDate = getFormattedDate();
 
   let cities = defaultCities;
   if (stored) {
@@ -234,37 +167,11 @@ export function getCities(): City[] {
     localStorage.setItem("satta_cities", JSON.stringify(defaultCities));
   }
 
-  // Local reset logic (backup)
-  const tracker = cities.find(c => c.id === "system-date-tracker");
-  const globalLastDate = tracker ? tracker.timing : storedDate;
-
-  if (globalLastDate !== currentDate && storedDate !== currentDate) {
-    cities = cities.map(city => {
-      if (city.id === "system-date-tracker") {
-        return { ...city, timing: currentDate };
-      }
-      return {
-        ...city,
-        yesterdayResult: city.todayResult || city.yesterdayResult,
-        todayResult: "",
-      };
-    });
-    localStorage.setItem("satta_cities", JSON.stringify(cities));
-    localStorage.setItem("satta_last_date", currentDate);
-  } else if (storedDate !== currentDate) {
-    localStorage.setItem("satta_cities", JSON.stringify(cities));
-    localStorage.setItem("satta_last_date", currentDate);
-  }
-
   return cities;
 }
 
 export async function saveCities(cities: City[]) {
-  const d = new Date();
-  const currentDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  
   localStorage.setItem("satta_cities", JSON.stringify(cities));
-  localStorage.setItem("satta_last_date", currentDate);
   
   if (supabase) {
     const upsertData = cities.map(c => ({
@@ -281,22 +188,15 @@ export async function saveCities(cities: City[]) {
     const { error } = await supabase.from("cities").upsert(upsertData, { onConflict: "id" });
     if (error) {
        console.error("CRITICAL SUPABASE UPSERT ERROR:", error.message, error.details);
-       // Throw error to alert the calling component rather than silently failing
        throw error;
     }
   }
 }
 
 export async function resetCitiesToDefaults() {
-  const d = new Date();
-  const currentDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-
   localStorage.setItem("satta_cities", JSON.stringify(defaultCities));
-  localStorage.setItem("satta_last_date", currentDate);
   
   if (supabase) {
-    // Delete all existing records to ensure perfect cleanup
-    // We use a safe comparison to delete all - checking if id is not null/empty
     const { error: deleteError } = await supabase.from("cities").delete().neq("id", "");
     
     if (deleteError) {
@@ -370,11 +270,9 @@ export function getTopResults(citiesParam?: City[]): TopResult[] {
   
   const sortedCities = [...cities].sort((a, b) => parseTime(a.timing) - parseTime(b.timing));
   
-  // Find past cities (time passed) and future cities
   const pastCities = sortedCities.filter(c => parseTime(c.timing) <= currentMinutes).sort((a, b) => parseTime(b.timing) - parseTime(a.timing));
   let futureCities = sortedCities.filter(c => parseTime(c.timing) > currentMinutes);
   
-  // If no future cities today, wrap around to tomorrow morning
   if (futureCities.length === 0) {
     futureCities = [...sortedCities];
   }
@@ -388,11 +286,10 @@ export function getTopResults(citiesParam?: City[]): TopResult[] {
       id: "top-1",
       cityName: nextCity.name,
       result: "",
-      isWaiting: true // Next city is waiting
+      isWaiting: true
     });
   }
   
-  // Add 2 most recently announced (or past) cities
   const announced = pastCities.filter(c => c.todayResult && c.todayResult !== "--");
   if (announced.length > 0) {
     results.push({
@@ -415,7 +312,6 @@ export function getTopResults(citiesParam?: City[]): TopResult[] {
 }
 
 export function saveTopResults(results: TopResult[]) {
-  // Not used anymore as getTopResults is dynamic, but kept for compatibility
   localStorage.setItem("satta_top_results", JSON.stringify(results));
 }
 
@@ -424,7 +320,6 @@ export function isAdminLoggedIn(): boolean {
 }
 
 export function adminLogin(password: string): boolean {
-  // Default admin password
   const adminPass = localStorage.getItem("admin_password") || "admin123";
   if (password === adminPass) {
     sessionStorage.setItem("admin_logged_in", "true");

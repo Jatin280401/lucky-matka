@@ -5098,6 +5098,7 @@ export const historicalChartData: Record<string, Record<string, string[]>> =
   },
   "disawer": {
     "JAN": [
+      "",
       "65",
       "63",
       "44",
@@ -5131,6 +5132,7 @@ export const historicalChartData: Record<string, Record<string, string[]>> =
       ""
     ],
     "FEB": [
+      "",
       "93",
       "78",
       "94",
@@ -5162,6 +5164,7 @@ export const historicalChartData: Record<string, Record<string, string[]>> =
       ""
     ],
     "MAR": [
+      "",
       "68",
       "49",
       "19",
