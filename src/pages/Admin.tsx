@@ -82,6 +82,7 @@ const Admin = () => {
   const handleUpdateCity = async (city: City) => {
     // Generate static date representations for the exact moment of saving
     const now = new Date();
+    const currentYear = now.getFullYear();
     const months = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
     const currentMonth = months[now.getMonth()];
     const currentDayIdx = now.getDate() - 1; // 0-indexed for array positions
@@ -90,34 +91,57 @@ const Admin = () => {
     const updatedCity = {
       ...city,
       slug: city.name.toLowerCase().trim().replace(/\s+/g, "-"),
-      chart_data: city.chart_data ? JSON.parse(JSON.stringify(city.chart_data)) : {} // Deep copy to edit
     };
-
-    // If there is an active result today, map it permanently into history
-    if (updatedCity.todayResult && updatedCity.todayResult !== "--") {
-      if (!updatedCity.chart_data[currentMonth]) {
-        updatedCity.chart_data[currentMonth] = Array.from({length: 31}, () => "");
-      }
-      updatedCity.chart_data[currentMonth][currentDayIdx] = updatedCity.todayResult;
-    }
-
-    // Also map yesterdayResult permanently into history if available
-    if (updatedCity.yesterdayResult && updatedCity.yesterdayResult !== "--") {
-      const yesterday = new Date(now);
-      yesterday.setDate(yesterday.getDate() - 1);
-      const yestMonth = months[yesterday.getMonth()];
-      const yestDayIdx = yesterday.getDate() - 1;
-
-      if (!updatedCity.chart_data[yestMonth]) {
-        updatedCity.chart_data[yestMonth] = Array.from({length: 31}, () => "");
-      }
-      updatedCity.chart_data[yestMonth][yestDayIdx] = updatedCity.yesterdayResult;
-    }
 
     const updated = cities.map((c) => (c.id === city.id ? updatedCity : c));
     
     try {
       await handleSaveCities(updated);
+      
+      // Update yearly_charts safely
+      if (supabase && (updatedCity.todayResult || updatedCity.yesterdayResult)) {
+        const targetId = `${updatedCity.slug}-${currentYear}`;
+        
+        // 1. Fetch current yearly chart
+        const { data: currentChart } = await supabase
+          .from("yearly_charts")
+          .select("chart_data")
+          .eq("id", targetId)
+          .single();
+          
+        let chartData = currentChart?.chart_data ? currentChart.chart_data : {};
+        if (typeof chartData === 'string') chartData = JSON.parse(chartData);
+        
+        // 2. Map today's result permanently into history
+        if (updatedCity.todayResult && updatedCity.todayResult !== "--") {
+          if (!chartData[currentMonth]) {
+            chartData[currentMonth] = Array.from({length: 31}, () => "");
+          }
+          chartData[currentMonth][currentDayIdx] = updatedCity.todayResult;
+        }
+
+        // 3. Map yesterday's result permanently into history
+        if (updatedCity.yesterdayResult && updatedCity.yesterdayResult !== "--") {
+          const yesterday = new Date(now);
+          yesterday.setDate(yesterday.getDate() - 1);
+          const yestMonth = months[yesterday.getMonth()];
+          const yestDayIdx = yesterday.getDate() - 1;
+
+          if (!chartData[yestMonth]) {
+            chartData[yestMonth] = Array.from({length: 31}, () => "");
+          }
+          chartData[yestMonth][yestDayIdx] = updatedCity.yesterdayResult;
+        }
+        
+        // 4. Upsert
+        await supabase.from("yearly_charts").upsert({
+          id: targetId,
+          city_slug: updatedCity.slug,
+          year: currentYear,
+          chart_data: chartData
+        }, { onConflict: "id" });
+      }
+
       setEditingCity(null);
       toast({
         title: "City Updated",
@@ -131,6 +155,7 @@ const Admin = () => {
       });
     }
   };
+
 
   const handleSaveKhaiwals = async (updated: Khaiwal[]) => {
     setKhaiwals(updated);

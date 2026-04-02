@@ -5,35 +5,63 @@ import Footer from "@/components/Footer";
 import { useData } from "@/hooks/useData";
 import { City } from "@/lib/data";
 import { useState, useEffect } from "react";
-import { historicalChartData } from "@/lib/chartData";
+import { supabase } from "@/lib/supabase";
 
 const months = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
 
-function getCityData(slug: string): Record<string, string[]> {
-  if (historicalChartData[slug]) return historicalChartData[slug];
-
-  // Deterministic seed-based number generation to keep results fixed on refresh
-  const getStaticValue = (month: string, day: number) => {
-    const seed = `${slug}-${month}-${day}-2026`;
-    let hash = 0;
-    for (let i = 0; i < seed.length; i++) {
-        hash = ((hash << 5) - hash) + seed.charCodeAt(i);
-        hash |= 0;
-    }
-    return String(Math.abs(hash) % 100).padStart(2, "0");
-  };
-
-  return {
-    JAN: Array.from({length: 31}, (_, i) => getStaticValue("JAN", i + 1)),
-    FEB: Array.from({length: 31}, (_, i) => i < 28 ? getStaticValue("FEB", i + 1) : ""),
-    MAR: Array.from({length: 31}, (_, i) => i < 7 ? getStaticValue("MAR", i + 1) : ""),
-  };
-}
+const emptyData: Record<string, string[]> = {
+  JAN: Array.from({length: 31}, () => ""),
+  FEB: Array.from({length: 31}, () => ""),
+  MAR: Array.from({length: 31}, () => ""),
+  APR: Array.from({length: 31}, () => ""),
+  MAY: Array.from({length: 31}, () => ""),
+  JUN: Array.from({length: 31}, () => ""),
+  JUL: Array.from({length: 31}, () => ""),
+  AUG: Array.from({length: 31}, () => ""),
+  SEP: Array.from({length: 31}, () => ""),
+  OCT: Array.from({length: 31}, () => ""),
+  NOV: Array.from({length: 31}, () => ""),
+  DEC: Array.from({length: 31}, () => ""),
+};
 
 const CityChart = () => {
   const { slug } = useParams<{ slug: string }>();
   const { cities } = useData();
   const [cityData, setCityData] = useState<City | null>(null);
+  const [data, setData] = useState<Record<string, string[]>>(emptyData);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch chart data dynamically from Supabase yearly_charts table
+  useEffect(() => {
+    const fetchYearlyData = async () => {
+      setLoading(true);
+      // Fallback empty data
+      setData(emptyData);
+      
+      try {
+        if (!slug || !supabase) return;
+        
+        const currentYear = 2026;
+        const targetId = `${slug}-${currentYear}`;
+        
+        const { data: cData, error } = await supabase
+          .from("yearly_charts")
+          .select("chart_data")
+          .eq("id", targetId)
+          .single();
+
+        if (cData && cData.chart_data && !error) {
+           setData({ ...emptyData, ...(typeof cData.chart_data === 'string' ? JSON.parse(cData.chart_data) : cData.chart_data) });
+        }
+      } catch (e) {
+        console.error("Failed to fetch yearly chart", e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchYearlyData();
+  }, [slug]);
 
   useEffect(() => {
     const found = cities.find((c) => c.slug === slug);
@@ -41,23 +69,7 @@ const CityChart = () => {
   }, [slug, cities]);
 
   const cityName = cityData ? cityData.name : (slug ? slug.replace(/-/g, " ") : "Unknown");
-  const data = getCityData(slug || "");
-  
-  // Real-time injection logic
-  const now = new Date();
-  const currentMonthIdx = now.getMonth(); // 0-11
-  const currentDay = now.getDate(); // 1-31
-  const currentMonthName = months[currentMonthIdx];
-  
-  let yesterdayMonthIdx = currentMonthIdx;
-  let yesterdayDay = currentDay - 1;
-  if (yesterdayDay === 0) {
-    const yesterdayDate = new Date(now);
-    yesterdayDate.setDate(now.getDate() - 1);
-    yesterdayMonthIdx = yesterdayDate.getMonth();
-    yesterdayDay = yesterdayDate.getDate();
-  }
-  const yesterdayMonthName = months[yesterdayMonthIdx];
+
 
   return (
     <div className="min-h-screen bg-background">
