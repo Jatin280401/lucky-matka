@@ -147,8 +147,61 @@ export const defaultTopResults: TopResult[] = [
   { id: "3", cityName: "Dehradun City", result: "", isWaiting: true },
 ];
 
-// DAILY RESET COMPLETELY DISABLED - SHIFTING MANAGED BY BACKEND API CRON
+export function getCurrentISTDateStr(): string {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+  return formatter.format(new Date()); 
+}
+
 export async function syncDailyReset(cities: City[]) {
+  const tracker = cities.find(c => c.id === "system-date-tracker");
+  if (!tracker) return cities;
+
+  const currentIST = getCurrentISTDateStr();
+
+  // If the stored date doesn't match the current IST date, we have crossed midnight IST
+  if (tracker.timing !== currentIST) {
+    console.log(`[syncDailyReset] Date changed from ${tracker.timing} to ${currentIST}. Shifting results...`);
+    
+    const updatedCities = cities.map(city => {
+       if (city.id === "system-date-tracker") {
+         return { ...city, timing: currentIST };
+       }
+       return {
+         ...city,
+         yesterdayResult: city.todayResult || city.yesterdayResult,
+         todayResult: "",
+       };
+    });
+
+    localStorage.setItem("satta_cities", JSON.stringify(updatedCities));
+
+    if (supabase) {
+      const upsertData = updatedCities.map(c => ({
+        id: c.id,
+        name: c.name,
+        timing: c.timing,
+        "yesterdayResult": c.yesterdayResult,
+        "todayResult": c.todayResult,
+        slug: c.slug,
+        "group": c.group,
+        "order": c.order
+      }));
+      
+      try {
+        const { error } = await supabase.from("cities").upsert(upsertData, { onConflict: "id" });
+        if (error) console.error("Error syncing daily reset to Supabase:", error);
+      } catch (err) {
+        console.error("Failed to sync daily reset:", err);
+      }
+    }
+    return updatedCities;
+  }
+
   return cities;
 }
 
