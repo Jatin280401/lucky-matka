@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/lib/supabase';
-import { City, Khaiwal, defaultCities, defaultKhaiwals } from '@/lib/data';
+import { City, Khaiwal, defaultCities, defaultKhaiwals, syncDailyReset } from '@/lib/data';
 
 type DataContextType = {
   cities: City[];
@@ -45,8 +45,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
         finalCities = JSON.parse(localStorage.getItem("satta_cities") || JSON.stringify(defaultCities));
       }
 
-      // NO daily reset - just use the data exactly as it comes from Supabase
-      setCities(finalCities);
+      // Perform daily reset check (IST timezone safe)
+      const syncedCities = await syncDailyReset(finalCities);
+      setCities(syncedCities);
 
       if (!khaiwalsError && khaiwalsData && khaiwalsData.length > 0) {
         setKhaiwals(khaiwalsData as Khaiwal[]);
