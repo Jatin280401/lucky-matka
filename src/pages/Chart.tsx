@@ -7,7 +7,9 @@ import { useState, useEffect } from "react";
 const Chart = () => {
   const { cities } = useData();
 
-  const allCities = [...cities].sort((a, b) => a.order - b.order);
+  const allCities = [...cities]
+    .filter(c => c.id !== "system-date-tracker")
+    .sort((a, b) => a.order - b.order);
 
   return (
     <div className="min-h-screen bg-background">
