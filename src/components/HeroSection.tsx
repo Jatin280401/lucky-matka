@@ -10,17 +10,17 @@ const HeroSection = () => {
   const [disawerCity, setDisawerCity] = useState<City | null>(null);
 
   useEffect(() => {
-    // Initial sync with context cities
+    // Sync with context cities deterministically, independent of client time
     setTopResults(getTopResults(cities));
     setDisawerCity(cities.find(c => c.slug === 'disawer' || c.slug === 'disawar') || null);
+  }, [cities]);
 
+  useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(new Date());
-      setTopResults(getTopResults(cities));
-      setDisawerCity(cities.find(c => c.slug === 'disawer' || c.slug === 'disawar') || null);
     }, 1000);
     return () => clearInterval(timer);
-  }, [cities]);
+  }, []);
 
   const formatDate = (date: Date) => {
     return date.toLocaleDateString("en-US", {

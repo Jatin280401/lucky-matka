@@ -127,19 +127,6 @@ export const defaultCities: City[] = [
   },
 ];
 
-export async function clearTodayResults() {
-  const currentCities = JSON.parse(localStorage.getItem("satta_cities") || "[]");
-  const cleared = currentCities.map((c: City) => ({ ...c, todayResult: "" }));
-  localStorage.setItem("satta_cities", JSON.stringify(cleared));
-
-  if (supabase) {
-    const { error } = await supabase
-      .from("cities")
-      .update({ todayResult: "" })
-      .neq("id", "");
-    if (error) throw error;
-  }
-}
 
 export const defaultTopResults: TopResult[] = [
   { id: "1", cityName: "Dwarka", result: "", isWaiting: true },
@@ -156,6 +143,24 @@ export function getCurrentISTDateStr(): string {
   });
   return formatter.format(new Date()); 
 }
+
+export function getISTDateParts(): { year: number, month: string, dayIdx: number, yesterdayMonth: string, yesterdayDayIdx: number } {
+  // Use Intl to get IST date to avoid client timezone inconsistencies
+  const now = new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
+  const istDate = new Date(now);
+  const currentYear = istDate.getFullYear();
+  const months = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
+  const currentMonth = months[istDate.getMonth()];
+  const currentDayIdx = istDate.getDate() - 1;
+
+  const yesterday = new Date(istDate);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayMonth = months[yesterday.getMonth()];
+  const yesterdayDayIdx = yesterday.getDate() - 1;
+
+  return { year: currentYear, month: currentMonth, dayIdx: currentDayIdx, yesterdayMonth, yesterdayDayIdx };
+}
+
 
 // syncDailyReset has been removed. Daily resets are handled by a backend Vercel cron job to prevent timezone inconsistencies.
 
@@ -242,54 +247,43 @@ export async function deleteKhaiwal(id: string) {
 
 export function getTopResults(citiesParam?: City[]): TopResult[] {
   const cities = (citiesParam || getCities()).filter(c => c.id !== "system-date-tracker");
-  const now = new Date();
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
   
   const sortedCities = [...cities].sort((a, b) => parseTime(a.timing) - parseTime(b.timing));
   
-  const pastCities = sortedCities.filter(c => parseTime(c.timing) <= currentMinutes).sort((a, b) => parseTime(b.timing) - parseTime(a.timing));
-  let futureCities = sortedCities.filter(c => parseTime(c.timing) > currentMinutes);
-  
-  if (futureCities.length === 0) {
-    futureCities = [...sortedCities];
-  }
-
-  const nextCity = futureCities.find(c => !c.todayResult) || futureCities[0];
+  // Announced cities have a defined todayResult
+  const announced = sortedCities.filter(c => c.todayResult && c.todayResult !== "--");
+  // Upcoming cities do not have a defined todayResult
+  const upcoming = sortedCities.filter(c => !c.todayResult || c.todayResult === "--");
   
   const results: TopResult[] = [];
   
-  if (nextCity) {
+  if (upcoming.length > 0) {
     results.push({
       id: "top-1",
-      cityName: nextCity.name,
+      cityName: upcoming[0].name,
       result: "",
       isWaiting: true
     });
   }
   
-  const announced = pastCities.filter(c => c.todayResult && c.todayResult !== "--");
   if (announced.length > 0) {
     results.push({
       id: "top-2",
-      cityName: announced[0].name,
-      result: announced[0].todayResult,
+      cityName: announced[announced.length - 1].name,
+      result: announced[announced.length - 1].todayResult,
       isWaiting: false
     });
   }
   if (announced.length > 1) {
     results.push({
       id: "top-3",
-      cityName: announced[1].name,
-      result: announced[1].todayResult,
+      cityName: announced[announced.length - 2].name,
+      result: announced[announced.length - 2].todayResult,
       isWaiting: false
     });
   }
   
   return results;
-}
-
-export function saveTopResults(results: TopResult[]) {
-  localStorage.setItem("satta_top_results", JSON.stringify(results));
 }
 
 export function isAdminLoggedIn(): boolean {

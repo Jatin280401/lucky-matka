@@ -5,7 +5,6 @@ import {
   saveCities,
   deleteCity,
   getTopResults,
-  saveTopResults,
   getKhaiwals,
   saveKhaiwals,
   deleteKhaiwal,
@@ -15,6 +14,7 @@ import {
   Khaiwal,
   parseTime,
   defaultCities,
+  getISTDateParts,
 } from "@/lib/data";
 import { useData } from "@/hooks/useData";
 import { supabase } from "@/lib/supabase";
@@ -78,11 +78,7 @@ const Admin = () => {
 
   const handleUpdateCity = async (city: City) => {
     // Generate static date representations for the exact moment of saving
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const months = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
-    const currentMonth = months[now.getMonth()];
-    const currentDayIdx = now.getDate() - 1; // 0-indexed for array positions
+    const { year: currentYear, month: currentMonth, dayIdx: currentDayIdx, yesterdayMonth: yestMonth, yesterdayDayIdx: yestDayIdx } = getISTDateParts();
 
     // Ensure slug matches the name
     const updatedCity = {
@@ -119,11 +115,6 @@ const Admin = () => {
 
         // 3. Map yesterday's result permanently into history
         if (updatedCity.yesterdayResult && updatedCity.yesterdayResult !== "--") {
-          const yesterday = new Date(now);
-          yesterday.setDate(yesterday.getDate() - 1);
-          const yestMonth = months[yesterday.getMonth()];
-          const yestDayIdx = yesterday.getDate() - 1;
-
           if (!chartData[yestMonth]) {
             chartData[yestMonth] = Array.from({length: 31}, () => "");
           }
@@ -449,9 +440,6 @@ interface CityListProps {
 }
 
 const CityList = ({ cities, editingCity, onEdit, onUpdate, onDelete }: CityListProps) => {
-  const now = new Date();
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
-
   return (
     <div className="space-y-2">
       {cities.map((city) => (
