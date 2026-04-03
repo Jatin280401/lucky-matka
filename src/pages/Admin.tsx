@@ -15,7 +15,6 @@ import {
   Khaiwal,
   parseTime,
   defaultCities,
-  resetCitiesToDefaults,
 } from "@/lib/data";
 import { useData } from "@/hooks/useData";
 import { supabase } from "@/lib/supabase";
@@ -26,8 +25,6 @@ const Admin = () => {
   const { toast } = useToast();
   const { cities: contextCities, khaiwals: contextKhaiwals } = useData();
   const [cities, setCities] = useState<City[]>([]);
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
-  const [isResetting, setIsResetting] = useState(false);
   const [khaiwals, setKhaiwals] = useState<Khaiwal[]>([]);
   const [editingCity, setEditingCity] = useState<City | null>(null);
   const [editingKhaiwal, setEditingKhaiwal] = useState<Khaiwal | null>(null);
@@ -240,49 +237,6 @@ const Admin = () => {
           <div className="flex justify-between items-center mb-4 border-b border-border pb-2">
             <h2 className="text-foreground font-bold text-xl">Manage Cities</h2>
             <div className="flex gap-2">
-              {!showResetConfirm ? (
-                <button
-                  onClick={() => setShowResetConfirm(true)}
-                  className="bg-muted text-muted-foreground px-4 py-2 rounded font-bold text-sm hover:opacity-80 transition-all"
-                >
-                  Reset to Defaults
-                </button>
-              ) : (
-                <div className="flex gap-2 animate-in fade-in slide-in-from-right-2 duration-200">
-                  <button
-                    disabled={isResetting}
-                    onClick={async () => {
-                      setIsResetting(true);
-                      try {
-                        await resetCitiesToDefaults();
-                        toast({
-                          title: "Reset Successful",
-                          description: "All cities have been restored to default values.",
-                        });
-                        setShowResetConfirm(false);
-                      } catch (error) {
-                        toast({
-                          title: "Reset Failed",
-                          description: "There was an error resetting the database.",
-                          variant: "destructive",
-                        });
-                      } finally {
-                        setIsResetting(false);
-                      }
-                    }}
-                    className="bg-destructive text-destructive-foreground px-4 py-2 rounded font-bold text-sm hover:opacity-90"
-                  >
-                    {isResetting ? "Resetting..." : "Confirm Reset?"}
-                  </button>
-                  <button
-                    disabled={isResetting}
-                    onClick={() => setShowResetConfirm(false)}
-                    className="bg-secondary text-secondary-foreground px-4 py-2 rounded font-bold text-sm hover:opacity-80"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              )}
               <button
                 onClick={() => setShowAddForm(!showAddForm)}
                 className="bg-primary text-primary-foreground px-4 py-2 rounded font-bold text-sm hover:bg-yellow-dark"
