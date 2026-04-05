@@ -17,13 +17,13 @@ const Navbar = () => {
   ];
 
   return (
-    <nav className="bg-background border-b-2 border-primary py-2 px-4">
-      <div className="max-w-6xl mx-auto flex justify-center gap-4 flex-wrap">
+    <nav className="bg-background border-b-2 border-primary py-2 px-2 sm:px-4">
+      <div className="max-w-6xl mx-auto flex justify-center gap-2 sm:gap-4">
         {navItems.map((item) => (
           <a
             key={item.path}
             href={item.path}
-            className="bg-primary text-primary-foreground font-bold px-8 py-2 rounded-full text-sm uppercase tracking-wide hover:bg-yellow-dark transition-colors"
+            className="bg-primary text-primary-foreground font-bold px-3 sm:px-8 py-2 rounded-full text-xs sm:text-sm uppercase tracking-wide hover:bg-yellow-dark transition-colors whitespace-nowrap"
           >
             {item.label}
           </a>
