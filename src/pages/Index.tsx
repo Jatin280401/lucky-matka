@@ -29,8 +29,8 @@ const Index = () => {
       <HeroSection />
 
       <div className="w-full bg-primary py-3 px-4 text-center border-y-[1.5px] border-dashed border-[#e91e63] my-1">
-        <a href="/chart/disawer" className="text-blue-700 font-bold uppercase underline text-xs md:text-sm">LUCKYMATKA DISAWER CHART</a>
-        <span className="text-black font-bold uppercase text-xs md:text-sm"> FOR 2025 IS AVAILABLE</span>
+        <a href="/chart/disawar" className="text-blue-700 font-bold uppercase underline text-xs md:text-sm">LUCKYMATKA DISAWER CHART</a>
+        <span className="text-black font-bold uppercase text-xs md:text-sm"> FOR 2026 IS AVAILABLE</span>
       </div>
 
       <div className="w-full bg-primary py-3 px-4 text-center border-y-[1.5px] border-dashed border-[#e91e63] my-1">
@@ -40,7 +40,7 @@ const Index = () => {
 
       <div className="w-full bg-primary py-3 px-4 text-center border-y-[1.5px] border-dashed border-[#e91e63] my-1">
         <span className="text-black font-bold uppercase text-xs md:text-sm">CHECK UPDATED SHREE GANESH SATTA KING CHART </span>
-        <a href="/chart/shri-ganesh" className="text-blue-700 font-bold uppercase underline text-xs md:text-sm">HERE</a>
+        <a href="/chart/shree-ganesh" className="text-blue-700 font-bold uppercase underline text-xs md:text-sm">HERE</a>
       </div>
 
       <TimingSection />
