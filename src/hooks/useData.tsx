@@ -45,8 +45,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
         finalCities = JSON.parse(localStorage.getItem("satta_cities") || JSON.stringify(defaultCities));
       }
 
-      // The daily reset is now handled exclusively by the Vercel cron job (api/cron.ts)
-      // We no longer shift results on the frontend to prevent client clock discrepancies from clearing data.
+      // Check for daily reset strictly on page load or explicit refresh, not every realtime ping
+      const { syncDailyReset } = await import('@/lib/data');
+      if (typeof window !== 'undefined' && !(window as any).satta_reset_completed) {
+        finalCities = await syncDailyReset(finalCities);
+        (window as any).satta_reset_completed = true;
+      }
+      
       setCities(finalCities);
 
       if (!khaiwalsError && khaiwalsData && khaiwalsData.length > 0) {
