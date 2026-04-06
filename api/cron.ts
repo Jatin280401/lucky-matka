@@ -8,12 +8,17 @@ export default async function handler(req: any, res: any) {
     
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Delay the execution by 5 seconds to ensure Vercel Cron is strictly past the exactly 12:00:00 AM IST threshold
+    // This perfectly solves the problem of Crons firing a few milliseconds early, without ever calculating the shift before midnight.
+    await new Promise(resolve => setTimeout(resolve, 5000));
+
     const formatter = new Intl.DateTimeFormat('en-CA', {
       timeZone: 'Asia/Kolkata',
       year: 'numeric',
       month: '2-digit',
       day: '2-digit'
     });
+    
     const currentIST = formatter.format(new Date()); 
 
     const { data: cities, error: fetchError } = await supabase.from('cities').select('*');
