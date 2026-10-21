@@ -61,29 +61,38 @@ const Admin = () => {
     setChartData(createEmptyChartData());
 
     try {
-      if (!supabase) {
-        toast({ title: "Error", description: "Supabase is not connected.", variant: "destructive" });
-        setChartLoading(false);
-        return;
+      let rawData = city.chart_data;
+
+      // If city doesn't have chart_data in local state, fetch from Supabase cities table
+      if (!rawData && supabase) {
+        const { data, error } = await supabase
+          .from("cities")
+          .select("chart_data")
+          .eq("id", city.id)
+          .single();
+
+        if (data && data.chart_data && !error) {
+          rawData = data.chart_data;
+        }
       }
 
-      const targetId = `${city.slug}-${year}`;
-      const { data, error } = await supabase
-        .from("yearly_charts")
-        .select("chart_data")
-        .eq("id", targetId)
-        .single();
-
-      if (data && data.chart_data && !error) {
-        const parsed = typeof data.chart_data === "string" ? JSON.parse(data.chart_data) : data.chart_data;
-        setChartData({ ...createEmptyChartData(), ...parsed });
+      if (rawData) {
+        const parsed = typeof rawData === "string" ? JSON.parse(rawData) : rawData;
+        const merged = createEmptyChartData();
+        MONTHS.forEach(m => {
+          if (parsed[m] && Array.isArray(parsed[m])) {
+            merged[m] = parsed[m].map((v: string) => v || "");
+            while (merged[m].length < 31) merged[m].push("");
+          }
+        });
+        setChartData(merged);
       }
     } catch (e) {
       console.error("Failed to load yearly chart:", e);
     } finally {
       setChartLoading(false);
     }
-  }, [toast]);
+  }, []);
 
   const handleChartCellChange = useCallback((month: string, dayIdx: number, value: string) => {
     setChartData(prev => {
@@ -99,19 +108,25 @@ const Admin = () => {
 
     setChartSaving(true);
     try {
-      const targetId = `${selectedChartCity.slug}-${chartYear}`;
-      const { error } = await supabase.from("yearly_charts").upsert({
-        id: targetId,
-        city_slug: selectedChartCity.slug,
-        year: chartYear,
-        chart_data: chartData,
-      }, { onConflict: "id" });
+      // 1. Update chart_data in Supabase cities table directly
+      const { error } = await supabase
+        .from("cities")
+        .update({ chart_data: chartData })
+        .eq("id", selectedChartCity.id);
 
       if (error) throw error;
 
+      // 2. Update local state
+      const updatedCities = cities.map(c => 
+        c.id === selectedChartCity.id ? { ...c, chart_data: chartData } : c
+      );
+      setCities(updatedCities);
+      setSelectedChartCity(prev => prev ? { ...prev, chart_data: chartData } : null);
+      localStorage.setItem("satta_cities", JSON.stringify(updatedCities));
+
       toast({
         title: "Chart Saved ✅",
-        description: `${selectedChartCity.name} ${chartYear} yearly chart updated successfully.`,
+        description: `${selectedChartCity.name} yearly chart updated successfully in cities table.`,
       });
     } catch (err: any) {
       toast({
@@ -122,7 +137,7 @@ const Admin = () => {
     } finally {
       setChartSaving(false);
     }
-  }, [selectedChartCity, chartYear, chartData, toast]);
+  }, [selectedChartCity, chartData, cities, toast]);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -163,57 +178,46 @@ const Admin = () => {
 
   const handleUpdateCity = async (city: City) => {
     // Generate static date representations for the exact moment of saving
-    const { year: currentYear, month: currentMonth, dayIdx: currentDayIdx, yesterdayMonth: yestMonth, yesterdayDayIdx: yestDayIdx } = getISTDateParts();
+    const { month: currentMonth, dayIdx: currentDayIdx, yesterdayMonth: yestMonth, yesterdayDayIdx: yestDayIdx } = getISTDateParts();
 
     // Ensure slug matches the name
-    const updatedCity = {
+    const updatedCity: City = {
       ...city,
       slug: city.name.toLowerCase().trim().replace(/\s+/g, "-"),
     };
+
+    // Ensure chart_data is updated with today's and yesterday's results
+    let cityChart: Record<string, string[]> = updatedCity.chart_data ? { ...updatedCity.chart_data } : {};
+    if (typeof cityChart === 'string') {
+      try { cityChart = JSON.parse(cityChart); } catch (e) { cityChart = {}; }
+    }
+
+    // 1. Map today's result into history in chart_data
+    if (updatedCity.todayResult && updatedCity.todayResult !== "--") {
+      if (!cityChart[currentMonth]) {
+        cityChart[currentMonth] = Array.from({ length: 31 }, () => "");
+      } else {
+        cityChart[currentMonth] = [...cityChart[currentMonth]];
+      }
+      cityChart[currentMonth][currentDayIdx] = updatedCity.todayResult;
+    }
+
+    // 2. Map yesterday's result into history in chart_data
+    if (updatedCity.yesterdayResult && updatedCity.yesterdayResult !== "--") {
+      if (!cityChart[yestMonth]) {
+        cityChart[yestMonth] = Array.from({ length: 31 }, () => "");
+      } else {
+        cityChart[yestMonth] = [...cityChart[yestMonth]];
+      }
+      cityChart[yestMonth][yestDayIdx] = updatedCity.yesterdayResult;
+    }
+
+    updatedCity.chart_data = cityChart;
 
     const updated = cities.map((c) => (c.id === city.id ? updatedCity : c));
     
     try {
       await handleSaveCities(updated);
-      
-      // Update yearly_charts safely
-      if (supabase && (updatedCity.todayResult || updatedCity.yesterdayResult)) {
-        const targetId = `${updatedCity.slug}-${currentYear}`;
-        
-        // 1. Fetch current yearly chart
-        const { data: currentChart } = await supabase
-          .from("yearly_charts")
-          .select("chart_data")
-          .eq("id", targetId)
-          .single();
-          
-        let chartData = currentChart?.chart_data ? currentChart.chart_data : {};
-        if (typeof chartData === 'string') chartData = JSON.parse(chartData);
-        
-        // 2. Map today's result permanently into history
-        if (updatedCity.todayResult && updatedCity.todayResult !== "--") {
-          if (!chartData[currentMonth]) {
-            chartData[currentMonth] = Array.from({length: 31}, () => "");
-          }
-          chartData[currentMonth][currentDayIdx] = updatedCity.todayResult;
-        }
-
-        // 3. Map yesterday's result permanently into history
-        if (updatedCity.yesterdayResult && updatedCity.yesterdayResult !== "--") {
-          if (!chartData[yestMonth]) {
-            chartData[yestMonth] = Array.from({length: 31}, () => "");
-          }
-          chartData[yestMonth][yestDayIdx] = updatedCity.yesterdayResult;
-        }
-        
-        // 4. Upsert
-        await supabase.from("yearly_charts").upsert({
-          id: targetId,
-          city_slug: updatedCity.slug,
-          year: currentYear,
-          chart_data: chartData
-        }, { onConflict: "id" });
-      }
 
       setEditingCity(null);
       toast({
