@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   getCities,
@@ -20,6 +20,14 @@ import { useData } from "@/hooks/useData";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 
+const MONTHS = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
+
+const createEmptyChartData = (): Record<string, string[]> => {
+  const data: Record<string, string[]> = {};
+  MONTHS.forEach(m => { data[m] = Array.from({length: 31}, () => ""); });
+  return data;
+};
+
 const Admin = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -38,6 +46,83 @@ const Admin = () => {
     group: "main",
     order: 0,
   });
+
+  // ── Yearly Chart Editor State ──
+  const [selectedChartCity, setSelectedChartCity] = useState<City | null>(null);
+  const [chartData, setChartData] = useState<Record<string, string[]>>(createEmptyChartData());
+  const [chartLoading, setChartLoading] = useState(false);
+  const [chartSaving, setChartSaving] = useState(false);
+  const [chartYear, setChartYear] = useState<number>(new Date().getFullYear());
+
+  const loadYearlyChart = useCallback(async (city: City, year: number) => {
+    setSelectedChartCity(city);
+    setChartYear(year);
+    setChartLoading(true);
+    setChartData(createEmptyChartData());
+
+    try {
+      if (!supabase) {
+        toast({ title: "Error", description: "Supabase is not connected.", variant: "destructive" });
+        setChartLoading(false);
+        return;
+      }
+
+      const targetId = `${city.slug}-${year}`;
+      const { data, error } = await supabase
+        .from("yearly_charts")
+        .select("chart_data")
+        .eq("id", targetId)
+        .single();
+
+      if (data && data.chart_data && !error) {
+        const parsed = typeof data.chart_data === "string" ? JSON.parse(data.chart_data) : data.chart_data;
+        setChartData({ ...createEmptyChartData(), ...parsed });
+      }
+    } catch (e) {
+      console.error("Failed to load yearly chart:", e);
+    } finally {
+      setChartLoading(false);
+    }
+  }, [toast]);
+
+  const handleChartCellChange = useCallback((month: string, dayIdx: number, value: string) => {
+    setChartData(prev => {
+      const updated = { ...prev };
+      updated[month] = [...(updated[month] || Array.from({length: 31}, () => ""))];
+      updated[month][dayIdx] = value;
+      return updated;
+    });
+  }, []);
+
+  const handleSaveYearlyChart = useCallback(async () => {
+    if (!selectedChartCity || !supabase) return;
+
+    setChartSaving(true);
+    try {
+      const targetId = `${selectedChartCity.slug}-${chartYear}`;
+      const { error } = await supabase.from("yearly_charts").upsert({
+        id: targetId,
+        city_slug: selectedChartCity.slug,
+        year: chartYear,
+        chart_data: chartData,
+      }, { onConflict: "id" });
+
+      if (error) throw error;
+
+      toast({
+        title: "Chart Saved ✅",
+        description: `${selectedChartCity.name} ${chartYear} yearly chart updated successfully.`,
+      });
+    } catch (err: any) {
+      toast({
+        title: "Save Failed",
+        description: err.message || "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setChartSaving(false);
+    }
+  }, [selectedChartCity, chartYear, chartData, toast]);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -425,6 +510,142 @@ const Admin = () => {
               </div>
             ))}
           </div>
+        </section>
+
+        {/* ── Yearly Charts Management ── */}
+        <section className="mb-8">
+          <div className="flex justify-between items-center mb-4 border-b border-border pb-2">
+            <h2 className="text-foreground font-bold text-xl">Manage Yearly Charts</h2>
+            {selectedChartCity && (
+              <button
+                onClick={() => setSelectedChartCity(null)}
+                className="bg-muted text-muted-foreground px-4 py-2 rounded font-bold text-sm hover:opacity-80"
+              >
+                ← Back to Cities
+              </button>
+            )}
+          </div>
+
+          {!selectedChartCity ? (
+            /* ── City Selection Grid ── */
+            <div>
+              <p className="text-muted-foreground text-sm mb-4">
+                Click on a city to view and edit its yearly chart data.
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                {cities
+                  .filter(c => c.id !== "system-date-tracker")
+                  .sort((a, b) => a.order - b.order)
+                  .map((city) => (
+                    <button
+                      key={city.id}
+                      onClick={() => loadYearlyChart(city, chartYear)}
+                      className="bg-secondary border border-border rounded-lg px-4 py-3 text-center hover:border-primary hover:bg-primary/10 transition-all duration-200 group"
+                    >
+                      <span className="text-primary font-bold text-sm uppercase group-hover:text-yellow-300 transition-colors">
+                        {city.name}
+                      </span>
+                      <span className="block text-muted-foreground text-xs mt-1">{city.timing}</span>
+                    </button>
+                  ))}
+              </div>
+            </div>
+          ) : (
+            /* ── Editable Yearly Chart ── */
+            <div>
+              {/* Chart Header */}
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                <div className="flex items-center gap-3">
+                  <h3 className="text-primary font-bold text-lg uppercase">
+                    {selectedChartCity.name} — Yearly Chart
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => loadYearlyChart(selectedChartCity, chartYear - 1)}
+                      className="bg-secondary border border-border text-foreground px-2 py-1 rounded text-sm font-bold hover:bg-muted"
+                    >
+                      ◀
+                    </button>
+                    <span className="text-foreground font-bold text-lg min-w-[50px] text-center">{chartYear}</span>
+                    <button
+                      onClick={() => loadYearlyChart(selectedChartCity, chartYear + 1)}
+                      className="bg-secondary border border-border text-foreground px-2 py-1 rounded text-sm font-bold hover:bg-muted"
+                    >
+                      ▶
+                    </button>
+                  </div>
+                </div>
+                <button
+                  onClick={handleSaveYearlyChart}
+                  disabled={chartSaving || chartLoading}
+                  className="bg-primary text-primary-foreground px-6 py-2 rounded font-bold text-sm hover:bg-yellow-dark disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
+                >
+                  {chartSaving ? "Saving..." : "💾 Submit Changes"}
+                </button>
+              </div>
+
+              {chartLoading ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <div className="inline-block w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mb-3"></div>
+                  <p>Loading chart data...</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded border border-border">
+                  <table className="w-full border-collapse text-sm">
+                    <thead>
+                      <tr className="bg-primary">
+                        <th className="border border-border px-2 py-2 text-primary-foreground font-bold text-xs sticky left-0 bg-primary z-10">
+                          {chartYear}
+                        </th>
+                        {MONTHS.map((m) => (
+                          <th
+                            key={m}
+                            className="border border-border px-2 py-2 text-primary-foreground font-bold text-xs"
+                          >
+                            {m}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Array.from({ length: 31 }, (_, i) => i).map((dayIdx) => (
+                        <tr key={dayIdx} className="bg-background hover:bg-muted/20 transition-colors">
+                          <td className="border border-border px-2 py-1 text-center text-primary font-bold text-sm sticky left-0 bg-background z-10">
+                            {dayIdx + 1}
+                          </td>
+                          {MONTHS.map((m) => (
+                            <td key={m} className="border border-border p-0">
+                              <input
+                                type="text"
+                                value={chartData[m]?.[dayIdx] || ""}
+                                onChange={(e) => handleChartCellChange(m, dayIdx, e.target.value)}
+                                className="w-full bg-transparent text-center text-foreground font-bold text-sm px-1 py-1.5 outline-none focus:bg-primary/10 focus:ring-1 focus:ring-primary transition-colors"
+                                style={{ minWidth: "44px" }}
+                                placeholder="-"
+                              />
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Bottom Save Button */}
+              {!chartLoading && (
+                <div className="flex justify-end mt-4">
+                  <button
+                    onClick={handleSaveYearlyChart}
+                    disabled={chartSaving}
+                    className="bg-primary text-primary-foreground px-8 py-2.5 rounded font-bold text-sm hover:bg-yellow-dark disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
+                  >
+                    {chartSaving ? "Saving..." : "💾 Submit Changes"}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </section>
       </div>
     </div>
